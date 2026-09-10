@@ -1,27 +1,26 @@
 import Link from "next/link";
 
-import AuthForm from "../shared/auth-form";
 import AuthShell from "../shared/auth-shell";
+import ForgotPasswordForm from "./forgot-password-form";
 
-export default function SignupPage() {
+export default function ForgotPasswordPage() {
   return (
     <AuthShell
-      title="Create your account"
-      description="Start with free credits and save your first cover letter."
-      showBenefits
+      title="Reset your password"
+      description="Enter the email address on your account and we'll send you a link to choose a new password."
       footer={
         <>
-          Already have an account?{" "}
+          Remembered it?{" "}
           <Link
             href="/login"
             className="font-semibold text-[#5D4EEA] hover:text-[#6D5DFB] focus-ring rounded-md"
           >
-            Log in
+            Back to log in
           </Link>
         </>
       }
     >
-      <AuthForm mode="signup" />
+      <ForgotPasswordForm />
     </AuthShell>
   );
 }
