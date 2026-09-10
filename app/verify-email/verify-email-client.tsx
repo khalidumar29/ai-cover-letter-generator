@@ -38,11 +38,8 @@ export default function VerifyEmailClient({
     if (!token || submitted.current) return;
     submitted.current = true;
 
-    let cancelled = false;
-
     void (async () => {
       const response = await postJson("/api/auth/verify-email", { token });
-      if (cancelled) return;
 
       if (response.ok) {
         setStatus({ kind: "verified" });
@@ -52,10 +49,6 @@ export default function VerifyEmailClient({
         setStatus({ kind: "failed", message: response.error });
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [token, router]);
 
   async function handleResend() {
