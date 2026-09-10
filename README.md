@@ -95,6 +95,89 @@ This project is being developed for the **Information System Design & Software E
 
 The final stack may be adjusted according to course requirements.
 
+### Implemented so far
+
+Authentication is built and working. It uses SQLite through Prisma rather than
+PostgreSQL, so the project runs with no database server to install — moving to
+PostgreSQL later means changing the `provider` in `prisma/schema.prisma` and
+pointing `DATABASE_URL` at the new server. Sessions are custom JWTs in an
+httpOnly cookie instead of Auth.js, because the verification and reset flows
+need their own single-use token handling either way.
+
+Transactional email is sent through **Brevo**.
+
+## Getting Started
+
+```bash
+npm install            # also runs `prisma generate`
+cp .env.example .env   # then fill in the values below
+npm run db:migrate     # creates dev.db and applies migrations
+npm run dev
+```
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | SQLite file location, e.g. `file:./dev.db` |
+| `AUTH_SECRET` | Signing key for session JWTs. Generate with `openssl rand -base64 32`. Rotating it logs everyone out. |
+| `BREVO_API_KEY` | Brevo API key. Leave it unset in development to print emails to the server console instead of sending them. |
+| `BREVO_SENDER_EMAIL` | Sender address. Must be a verified sender or an authenticated domain in Brevo. |
+| `BREVO_SENDER_NAME` | Display name on outgoing email. |
+| `APP_URL` | Base URL used to build links inside emails. |
+
+`.env` is gitignored and must never be committed.
+
+## Authentication
+
+### Flows
+
+| Flow | Page | Endpoint |
+| --- | --- | --- |
+| Create account | `/signup` | `POST /api/auth/signup` |
+| Log in | `/login` | `POST /api/auth/login` |
+| Log out | header button | `POST /api/auth/logout` |
+| Confirm email | `/verify-email` | `POST /api/auth/verify-email` |
+| Resend confirmation | `/verify-email` | `POST /api/auth/resend-verification` |
+| Forgot password | `/forgot-password` | `POST /api/auth/forgot-password` |
+| Reset password | `/reset-password?token=…` | `POST /api/auth/reset-password` |
+| Change password | `/account/password` | `POST /api/auth/change-password` |
+| Current user | — | `GET /api/auth/me` |
+
+A new account is signed in immediately but cannot reach the app until the email
+address is confirmed; the protected layout redirects it to `/verify-email`,
+which can resend the link.
+
+### Emails
+
+Three messages go out through Brevo, all built in `lib/email/templates.ts`:
+confirmation, password reset, and a notification whenever a password changes.
+
+### Security decisions
+
+- Passwords are hashed with bcrypt at cost 12 and never logged.
+- Verification and reset links are random 32-byte tokens. Only their SHA-256
+  hash is stored, they are single-use, and issuing a new one invalidates the
+  previous one. Confirmation links last 24 hours, reset links 1 hour.
+- Changing or resetting a password stamps `passwordChangedAt`, which invalidates
+  every session issued earlier — so a reset signs out an attacker who still
+  holds a valid cookie.
+- Login, password reset and resend answer identically for known and unknown
+  addresses, and login spends the same bcrypt time either way, so none of them
+  can be used to discover which addresses are registered.
+- All auth endpoints are rate limited per IP, with a second per-account bucket
+  on login, reset and resend. The limiter is in process memory, which is enough
+  for a single server; a multi-instance deployment needs a shared store.
+- `?next=` redirects are restricted to same-site paths to prevent open redirects.
+- Session cookies are `httpOnly`, `sameSite=lax`, and `secure` in production.
+
+### Route protection
+
+`proxy.ts` (the Next.js 16 replacement for `middleware.ts`) runs on the Edge
+runtime and checks only the session signature, since it has no database access.
+The database-backed checks — the account still existing, and the email being
+confirmed — happen in `app/(app)/layout.tsx`.
+
 ## Main Database Entities
 
 | Entity | Purpose |
@@ -137,7 +220,8 @@ The project focuses only on generating and managing cover letters. Résumé buil
 
 ## Project Status
 
-Planning and system design.
+Authentication is implemented and tested end to end. Cover letter generation,
+credits and payments are still to be built.
 
 ## License
 
