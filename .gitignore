@@ -2,3 +2,14 @@ Design.md
 .commandcode
 node_modules/
 .next/
+# Environment & secrets
+.env
+.env*.local
+
+# Prisma
+/lib/generated
+/*.db
+/*.db-journal
+
+# TypeScript
+*.tsbuildinfo

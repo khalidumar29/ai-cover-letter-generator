@@ -1,0 +1,55 @@
+// Prisma schema for the AI Cover Letter Generator.
+// SQLite keeps local development and lab demos zero-setup. To move to
+// PostgreSQL later, change `provider` to "postgresql" and update DATABASE_URL.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String @id @default(cuid())
+  name         String
+  email        String @unique
+  passwordHash String
+
+  // "USER" | "ADMIN" — SQLite has no native enum type.
+  role String @default("USER")
+
+  // Null until the user clicks the Brevo verification link.
+  emailVerifiedAt DateTime?
+
+  // Sessions issued before this moment are rejected, so a password change
+  // or reset logs the account out everywhere.
+  passwordChangedAt DateTime?
+
+  credits Int @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tokens AuthToken[]
+}
+
+model AuthToken {
+  id     String @id @default(cuid())
+  userId String
+
+  // "EMAIL_VERIFICATION" | "PASSWORD_RESET"
+  type String
+
+  // Only the SHA-256 hash is stored; the raw token lives in the email link.
+  tokenHash String @unique
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
