@@ -41,3 +41,14 @@ export function serverError(context: string, cause: unknown) {
     { status: 500 },
   );
 }
+
+/** Turns a failed auth guard into the response its status calls for. */
+export function guardFailure(status: 401 | 403) {
+  return status === 401
+    ? fail("Not authenticated.", 401)
+    : fail("You do not have access to this.", 403);
+}
+
+export function notFound(message = "Not found.") {
+  return fail(message, 404);
+}
