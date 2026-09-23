@@ -15,10 +15,6 @@ const email = z
   .email("Enter a valid email address.")
   .transform((value) => value.toLowerCase());
 
-/**
- * Matches the hint shown under the signup password field: at least 8
- * characters mixing letters and numbers.
- */
 const password = z
   .string()
   .min(8, "Password must be at least 8 characters.")
@@ -48,8 +44,6 @@ export const signupSchema = z
 
 export const loginSchema = z.object({
   email,
-  // Deliberately lax: an old account must still be able to log in if the
-  // policy tightens later.
   password: z.string().min(1, "Password is required."),
 });
 
@@ -83,7 +77,6 @@ export const changePasswordSchema = z
 
 export const verifyTokenSchema = z.object({ token });
 
-/** Flattens a Zod error into the field-error shape the API returns. */
 export function toFieldErrors(error: z.ZodError): FieldErrors {
   const fieldErrors: FieldErrors = {};
   for (const issue of error.issues) {
@@ -112,7 +105,6 @@ export const generateLetterSchema = z.object({
     .string()
     .trim()
     .min(80, "Paste at least a paragraph of the job description.")
-    // Keeps a pasted careers page from blowing past the model's context window.
     .max(12000, "Job description must be 12,000 characters or fewer."),
   tone: z.enum(TONE_VALUES as [string, ...string[]], {
     message: "Choose a writing tone.",

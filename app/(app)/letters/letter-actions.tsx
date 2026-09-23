@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/app/shared/toast";
 import { Button } from "@/app/shared/ui";
 
-/** Row-level menu. Destructive action is separated and asks before running. */
 export default function LetterActions({
   letterId,
   title,

@@ -14,17 +14,9 @@ export type GenerationOutcome = {
   credits: number;
 };
 
-/**
- * Runs one paid generation: take the credit, call the model, store the result.
- *
- * The credit is taken *before* the model call, because two requests that both
- * read the balance first could both pass the check. If the call then fails the
- * credit is put back, so a user is never charged for a letter they did not get.
- */
 export async function generateAndSave(options: {
   user: { id: string; name: string };
   input: GenerationInput;
-  /** Set to overwrite an existing letter instead of creating one. */
   replaceLetterId?: string;
 }): Promise<GenerationOutcome> {
   const { user, input, replaceLetterId } = options;
@@ -60,7 +52,6 @@ export async function generateAndSave(options: {
   const letter = replaceLetterId
     ? await prisma.coverLetter.update({
         where: { id: replaceLetterId },
-        // A regenerate replaces the text, so an archived letter returns to draft.
         data: { ...data, status: "DRAFT" },
         select: { id: true },
       })
@@ -70,7 +61,6 @@ export async function generateAndSave(options: {
       });
 
   if (!replaceLetterId) {
-    // The ledger entry is written before the letter exists, so link it now.
     await prisma.creditTransaction.update({
       where: { id: transactionId },
       data: { coverLetterId: letter.id },

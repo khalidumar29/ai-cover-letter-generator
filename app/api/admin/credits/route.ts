@@ -5,7 +5,6 @@ import { fail, guardFailure, notFound, ok, readJson, serverError } from "@/lib/h
 import { prisma } from "@/lib/prisma";
 import { adjustCreditsSchema, toFieldErrors } from "@/lib/validation";
 
-/** Manual credit grant or correction. Recorded in the ledger like any other. */
 export async function POST(request: Request) {
   try {
     const guard = await requireApiAdmin();

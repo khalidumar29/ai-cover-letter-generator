@@ -33,8 +33,6 @@ export async function PATCH(request: Request, { params }: Context) {
     }
 
     const { id } = await params;
-    // Scoped by userId in the same statement, so one user cannot edit another's
-    // letter by guessing an id.
     const updated = await prisma.coverLetter.updateMany({
       where: { id, userId: guard.user.id },
       data: parsed.data,

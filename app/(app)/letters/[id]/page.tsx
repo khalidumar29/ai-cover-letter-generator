@@ -23,8 +23,6 @@ export default async function LetterPage({ params }: Props) {
   const user = await requirePageUser();
   const { id } = await params;
 
-  // Scoped to the owner, so another user's id resolves to a 404 rather than
-  // confirming that the letter exists.
   const letter = await prisma.coverLetter.findFirst({
     where: { id, userId: user.id },
   });

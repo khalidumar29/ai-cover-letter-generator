@@ -7,14 +7,6 @@ import { REWRITE_ACTIONS, type RewriteAction } from "@/lib/domain";
 
 export type ToolbarAnchor = { top: number; left: number };
 
-/**
- * Contextual AI actions for the selected passage.
- *
- * Positioned against the live selection rectangle and dismissed as soon as the
- * selection goes away, so the editor is not permanently ringed with controls.
- * Buttons suppress mousedown because taking focus would collapse the very
- * selection they are about to act on.
- */
 export default function SelectionToolbar({
   anchor,
   pending,

@@ -13,11 +13,9 @@ type AuthShellProps = {
   description: string;
   children: ReactNode;
   footer?: ReactNode;
-  /** Signup shows the value recap under the form; other flows do not. */
   showBenefits?: boolean;
 };
 
-/** Split marketing / form layout shared by every authentication screen. */
 export default function AuthShell({
   title,
   description,

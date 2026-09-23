@@ -6,7 +6,6 @@ import { fail, ok, readJson, serverError, tooManyRequests } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { emailOnlySchema, toFieldErrors } from "@/lib/validation";
 
-// Same response for a known and an unknown address.
 const GENERIC =
   "If an account exists for that address, we've sent a password reset link.";
 
@@ -22,8 +21,6 @@ export async function POST(request: Request) {
     const { email } = parsed.data;
 
     const accountLimit = rateLimit(`forgot:email:${email}`, 3, 15 * 60 * 1000);
-    // Silently succeed rather than 429 here: a distinct response would confirm
-    // that the address is registered.
     if (!accountLimit.allowed) return ok({ message: GENERIC });
 
     const user = await prisma.user.findUnique({
@@ -43,7 +40,6 @@ export async function POST(request: Request) {
           text: message.text,
         });
       } catch (cause) {
-        // Keep the response generic even when delivery fails.
         console.error("[forgot-password] delivery failed", cause);
       }
     }

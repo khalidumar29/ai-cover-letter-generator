@@ -186,7 +186,6 @@ function PackageDialog({
       slug: String(data.get("slug") ?? ""),
       description: String(data.get("description") ?? ""),
       credits: Number(data.get("credits")),
-      // Entered in whole currency units; the API stores minor units.
       priceCents: Math.round(Number(data.get("price")) * 100),
       sortOrder: Number(data.get("sortOrder")),
       active: data.get("active") === "on",

@@ -16,14 +16,6 @@ function hashToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
 }
 
-/**
- * Issues a single-use token and returns the raw value, which is only ever sent
- * to the user by email. The database stores the SHA-256 hash, so a leaked
- * database dump cannot be replayed against these endpoints.
- *
- * Any earlier unused token of the same type is invalidated first, so the most
- * recent email in the inbox is always the one that works.
- */
 export async function issueToken(userId: string, type: TokenType): Promise<string> {
   const rawToken = randomBytes(32).toString("base64url");
 
@@ -49,10 +41,6 @@ export type ConsumeResult =
   | { ok: true; userId: string }
   | { ok: false; reason: "invalid" | "expired" | "used" };
 
-/**
- * Validates a token and marks it used in the same step, so a link cannot be
- * replayed even if the mailbox is later compromised.
- */
 export async function consumeToken(
   rawToken: string,
   type: TokenType,
@@ -65,8 +53,6 @@ export async function consumeToken(
   if (record.usedAt) return { ok: false, reason: "used" };
   if (record.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
 
-  // updateMany with a usedAt guard makes concurrent submissions of the same
-  // link resolve to exactly one winner.
   const claimed = await prisma.authToken.updateMany({
     where: { id: record.id, usedAt: null },
     data: { usedAt: new Date() },

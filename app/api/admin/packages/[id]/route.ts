@@ -40,10 +40,6 @@ export async function PATCH(request: Request, { params }: Context) {
   }
 }
 
-/**
- * Packages are retired rather than deleted once they have been bought, so the
- * payment history keeps pointing at something real.
- */
 export async function DELETE(_request: Request, { params }: Context) {
   try {
     const guard = await requireApiAdmin();

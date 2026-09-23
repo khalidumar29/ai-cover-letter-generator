@@ -27,8 +27,6 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
       {token ? (
         <ResetPasswordForm token={token} />
       ) : (
-        // The token is only ever delivered by email, so a bare visit to this
-        // page has nothing to act on.
         <div className="mt-8 space-y-4">
           <Alert variant="error">
             This page needs a reset link. Request a new one to continue.

@@ -10,10 +10,6 @@ import {
   type ReactNode,
 } from "react";
 
-/**
- * Confirmations only. Anything the user has to act on belongs in the page, not
- * in a message that disappears.
- */
 type Toast = { id: number; message: string; tone: "success" | "error" };
 
 const ToastContext = createContext<((message: string, tone?: Toast["tone"]) => void) | null>(null);

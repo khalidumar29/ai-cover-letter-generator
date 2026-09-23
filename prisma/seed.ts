@@ -4,11 +4,6 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 import { PrismaClient } from "../lib/generated/prisma/client";
 
-/**
- * Seeds the credit packages from the project plan. Upserted by slug, so
- * re-running is safe and never resets a price an admin has since edited
- * beyond what is defined here.
- */
 const packages = [
   {
     slug: "basic",

@@ -10,7 +10,6 @@ import { Alert, Field, SubmitButton } from "@/app/shared/form";
 
 type AuthFormProps = {
   mode: "login" | "signup";
-  /** Path to return to after login, supplied by middleware via ?next=. */
   nextPath?: string;
 };
 
@@ -51,11 +50,9 @@ export default function AuthForm({ mode, nextPath }: AuthFormProps) {
       return;
     }
 
-    // Unverified accounts go to the notice page, which can resend the email.
     const verified = response.emailVerified === true;
     const destination = isSignup || !verified ? "/verify-email" : nextPath || "/dashboard";
 
-    // refresh() lets server components pick up the new session cookie.
     router.replace(destination);
     router.refresh();
   }

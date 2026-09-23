@@ -7,17 +7,6 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
-/**
- * The shared vocabulary every signed-in screen is built from. Screens compose
- * these rather than restyling buttons and cards locally, which is what keeps
- * the product looking like one product.
- *
- * Deliberately not marked "use client": none of these hold state, so they
- * render on the server for pages and get pulled into the client bundle by the
- * components that do. That is what lets a server page pass an icon component
- * straight through as a prop.
- */
-
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "sm" | "md";
 
@@ -219,8 +208,6 @@ export function Textarea({
         aria-invalid={error ? true : undefined}
         aria-describedby={[errorId, hintId].filter(Boolean).join(" ") || undefined}
         {...props}
-        // After the spread: a caller passing className should add to the base
-        // styles, not replace them.
         className={`focus-ring min-h-[120px] w-full rounded-lg border bg-white px-3 py-2.5 text-sm leading-[21px] text-[#18181B] placeholder:text-[#A1A1AA] ${
           error ? "border-[#DC2626]" : "border-[#E4E4E7]"
         } ${className}`}
@@ -285,7 +272,6 @@ export function TextInput({
   );
 }
 
-/** Lightweight single-select, used for tone and status. */
 export function ChipGroup<T extends string>({
   name,
   options,
@@ -331,7 +317,6 @@ export function ChipGroup<T extends string>({
   );
 }
 
-/** Match percentage as a plain bar. No axis, no false precision. */
 export function MatchBar({ score }: { score: number }) {
   const tone = score >= 80 ? "#16A34A" : score >= 60 ? "#6D5DFB" : score >= 40 ? "#D97706" : "#71717A";
 

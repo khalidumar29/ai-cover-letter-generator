@@ -32,16 +32,12 @@ export async function POST(request: Request) {
       where: { id: result.userId },
       data: {
         passwordHash: await hashPassword(password),
-        // Invalidates every existing session, including any the attacker holds.
         passwordChangedAt: now,
-        // Following the emailed link proves control of the inbox, so an
-        // unverified address can be confirmed here too.
         emailVerifiedAt: { set: now },
       },
       select: { id: true, name: true, email: true },
     });
 
-    // Any pending verification link is now redundant.
     await prisma.authToken.updateMany({
       where: { userId: user.id, usedAt: null },
       data: { usedAt: now },
@@ -59,7 +55,6 @@ export async function POST(request: Request) {
         text: message.text,
       });
     } catch (cause) {
-      // The reset itself succeeded; the notification is best-effort.
       console.error("[reset-password] notification failed", cause);
     }
 

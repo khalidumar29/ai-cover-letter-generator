@@ -30,8 +30,6 @@ export default function ChangePasswordForm() {
     setResult(response);
     if (response.ok) {
       setSaved(true);
-      // The server re-issues this device's session, so stay on the page and
-      // just clear the inputs.
       form.reset();
     }
     setPending(false);

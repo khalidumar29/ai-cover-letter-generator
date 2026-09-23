@@ -44,8 +44,6 @@ export default function AppSidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // The drawer is a navigation overlay; leaving it open across a route change
-  // would cover the page the user just asked for.
   useEffect(() => setDrawerOpen(false), [pathname]);
 
   return (
@@ -126,7 +124,6 @@ function NavGroup({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <ul className="space-y-0.5">
       {items.map(({ href, label, icon: Icon }) => {
-        // "/letters" should stay lit while a specific letter is open.
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <li key={href}>

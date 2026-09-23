@@ -65,10 +65,6 @@ function buildUserPrompt(brief: LetterBrief): string {
   ].join("\n");
 }
 
-/**
- * Generates a letter and its job-match summary in one call, so a generation
- * costs one credit and one round trip rather than two of each.
- */
 export async function generateCoverLetter(brief: LetterBrief): Promise<GeneratedLetter> {
   const raw = await complete({
     messages: [
@@ -105,10 +101,6 @@ const REWRITE_INSTRUCTIONS: Record<RewriteAction, string> = {
   specific: "Replace vague claims with the concrete detail already present.",
 };
 
-/**
- * Applies a contextual edit to one selected passage. The surrounding letter is
- * supplied as read-only context so the rewrite keeps the same voice.
- */
 export async function rewritePassage(options: {
   passage: string;
   action: RewriteAction;
@@ -150,10 +142,6 @@ export async function rewritePassage(options: {
   return cleanLetter(result);
 }
 
-/**
- * DeepSeek honours response_format reliably, but a stray code fence or a line
- * of prose around the object would otherwise take down the whole request.
- */
 function parseJsonObject(raw: string): Record<string, unknown> {
   const fenced = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   const start = fenced.indexOf("{");
@@ -166,12 +154,10 @@ function parseJsonObject(raw: string): Record<string, unknown> {
       return value as Record<string, unknown>;
     }
   } catch {
-    // Falls through to the shared error below.
   }
   throw new Error("The AI service returned a response that could not be read.");
 }
 
-/** Strips markdown leftovers and normalises paragraph spacing. */
 function cleanLetter(value: string): string {
   return value
     .replace(/\r\n/g, "\n")

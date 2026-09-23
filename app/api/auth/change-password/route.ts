@@ -37,12 +37,10 @@ export async function POST(request: Request) {
       where: { id: account.id },
       data: {
         passwordHash: await hashPassword(password),
-        // Signs out every other device.
         passwordChangedAt: new Date(),
       },
     });
 
-    // Re-issue this device's session so the user is not logged out mid-flow.
     await startSession(account);
 
     try {

@@ -2,7 +2,6 @@ import { appUrl } from "@/lib/env";
 
 const BRAND = "AI Cover Letter Generator";
 
-// Palette mirrors Design.md so email matches the product surface.
 const ACCENT = "#6D5DFB";
 const TEXT = "#18181B";
 const TEXT_SECONDARY = "#52525B";
@@ -27,10 +26,6 @@ type LayoutInput = {
   footnote: string;
 };
 
-/**
- * Table-based layout with inline styles — the only markup that renders
- * consistently across Gmail, Outlook and Apple Mail.
- */
 function layout({ heading, intro, buttonLabel, buttonUrl, footnote }: LayoutInput): string {
   return `<!doctype html>
 <html lang="en">
@@ -129,7 +124,6 @@ export function passwordResetEmail(name: string, rawToken: string): EmailContent
   };
 }
 
-/** Sent after any successful password change, as a tamper alarm. */
 export function passwordChangedEmail(name: string): EmailContent {
   const url = `${appUrl()}/forgot-password`;
   const safeName = escapeHtml(name);

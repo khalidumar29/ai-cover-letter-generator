@@ -9,12 +9,6 @@ import { Alert } from "@/app/shared/form";
 import { Button, ButtonLink, Card, ChipGroup, Textarea, TextInput } from "@/app/shared/ui";
 import { TONES, type Tone } from "@/lib/domain";
 
-/**
- * Contextual progress in place of a spinner. The model call is a single
- * request with no progress events, so the steps advance on a timer and the
- * last one holds until the response actually lands — it describes what the
- * request is doing, and never claims to be finished before it is.
- */
 const STEPS = [
   "Reading your background",
   "Analysing the job description",
@@ -64,8 +58,6 @@ export default function GenerateForm({ credits }: { credits: number }) {
     });
 
     if (response.ok) {
-      // Keep the pending state through the navigation so the form does not
-      // flash back to idle before the editor mounts.
       router.push(`/letters/${response.letterId as string}`);
       return;
     }

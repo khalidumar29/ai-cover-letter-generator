@@ -32,7 +32,6 @@ export default function ResetPasswordForm({ token }: { token: string }) {
       return;
     }
 
-    // The reset clears the session everywhere, so the user logs in again.
     router.replace("/login?reset=1");
     router.refresh();
   }

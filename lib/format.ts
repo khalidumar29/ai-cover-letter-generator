@@ -1,10 +1,7 @@
-/** Shared display formatting, so amounts and dates read the same everywhere. */
-
 export function formatMoney(cents: number, currency = "USD"): string {
   return new Intl.NumberFormat("en", {
     style: "currency",
     currency,
-    // Whole-dollar prices read better without the trailing ".00".
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
   }).format(cents / 100);
 }
@@ -41,7 +38,6 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 
 const relativeFormat = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
-/** "2 days ago", for document rows where the exact minute does not matter. */
 export function formatRelative(value: Date, now = Date.now()): string {
   const elapsed = value.getTime() - now;
 

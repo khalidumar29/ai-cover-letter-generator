@@ -2,10 +2,6 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { requireEnv } from "@/lib/env";
 
-/**
- * Edge-safe half of the session layer: no database and no `next/headers`, so
- * middleware can import it. Anything needing the database lives in session.ts.
- */
 export const SESSION_COOKIE = "acl_session";
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -14,7 +10,6 @@ export type SessionPayload = {
   email: string;
   name: string;
   role: string;
-  /** Issued-at, in seconds. Compared against User.passwordChangedAt. */
   iat: number;
   exp: number;
 };
@@ -37,7 +32,6 @@ export async function signSession(user: {
     .sign(secret());
 }
 
-/** Returns null for any token that is malformed, tampered with, or expired. */
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });

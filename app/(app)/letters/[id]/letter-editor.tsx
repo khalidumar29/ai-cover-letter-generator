@@ -45,7 +45,6 @@ export default function LetterEditor({
   const [regenerating, setRegenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Remounts the uncontrolled document after a regenerate replaces the text.
   const [documentKey, setDocumentKey] = useState(0);
 
   const dirty = content !== savedContent;
@@ -54,7 +53,6 @@ export default function LetterEditor({
     if (documentRef.current) setContent(readDocument(documentRef.current));
   }, []);
 
-  /** Shows the toolbar whenever a non-empty selection sits inside the document. */
   const refreshSelection = useCallback(() => {
     const selection = window.getSelection();
     const container = documentRef.current;
@@ -83,7 +81,6 @@ export default function LetterEditor({
     return () => document.removeEventListener("selectionchange", refreshSelection);
   }, [refreshSelection]);
 
-  // Warn before losing edits that were never saved.
   useEffect(() => {
     if (!dirty) return;
 
@@ -111,8 +108,6 @@ export default function LetterEditor({
       return;
     }
 
-    // Replace in the DOM rather than through React state: the document is
-    // uncontrolled, so re-rendering it would throw away the caret and undo.
     range.deleteContents();
     range.insertNode(document.createTextNode(response.replacement as string));
 
@@ -341,10 +336,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * Reads the contentEditable back as plain text. Block children are joined with
- * a blank line, which is the paragraph separator the letter is stored in.
- */
 function readDocument(element: HTMLElement): string {
   return Array.from(element.childNodes)
     .map((node) => (node.textContent ?? "").replace(/ /g, " ").trim())

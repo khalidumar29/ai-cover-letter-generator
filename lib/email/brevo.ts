@@ -20,16 +20,6 @@ export class EmailDeliveryError extends Error {
   }
 }
 
-/**
- * Sends one transactional email through Brevo's REST API.
- *
- * Called directly rather than through the Brevo SDK: this is a single JSON
- * POST, and plain fetch keeps the dependency surface small and works in every
- * Next.js runtime.
- *
- * Without BREVO_API_KEY the message is printed to the server console instead,
- * so local development and tests never depend on a live account.
- */
 export async function sendEmail({
   to,
   toName,
@@ -75,8 +65,6 @@ export async function sendEmail({
   }
 
   if (!response.ok) {
-    // Brevo returns { code, message }; keep it in the server log only, since it
-    // can echo the recipient address back.
     const detail = await response.text().catch(() => "");
     console.error(`[brevo] ${response.status} ${response.statusText} ${detail}`);
     throw new EmailDeliveryError(

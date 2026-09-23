@@ -6,13 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { rewriteSchema, toFieldErrors } from "@/lib/validation";
 import type { RewriteAction } from "@/lib/domain";
 
-/**
- * Contextual edits from the editor's selection toolbar.
- *
- * These refine a letter the user has already paid to generate, so they cost no
- * credit — the rate limit is what keeps the endpoint from being used as a free
- * general-purpose model.
- */
 export async function POST(request: Request) {
   try {
     const guard = await requireApiUser();

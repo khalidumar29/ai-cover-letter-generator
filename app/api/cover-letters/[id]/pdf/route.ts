@@ -31,7 +31,6 @@ export async function GET(_request: Request, { params }: Context) {
       headers: {
         "content-type": "application/pdf",
         "content-disposition": `attachment; filename="${letterFilename(letter.jobTitle, letter.company)}"`,
-        // The letter is private and changes on every edit.
         "cache-control": "private, no-store",
       },
     });

@@ -22,8 +22,6 @@ export async function POST(request: Request) {
     const result = await consumeToken(parsed.data.token, EMAIL_VERIFICATION);
     if (!result.ok) {
       if (result.reason === "expired") return fail(EXPIRED, 410);
-      // A "used" token most often means the user clicked the link twice, or a
-      // mail scanner opened it first. Treat that as already-verified below.
       if (result.reason === "used") {
         return ok({ alreadyVerified: true });
       }

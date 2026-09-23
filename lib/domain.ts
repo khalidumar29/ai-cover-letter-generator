@@ -1,9 +1,3 @@
-/**
- * Values the database stores as plain strings, because SQLite has no native
- * enum type. Everything that renders or validates one of these reads it from
- * here, so adding a tone or status is a single edit.
- */
-
 export const TONES = [
   {
     value: "professional",
@@ -55,10 +49,6 @@ export function statusLabel(value: string): string {
   return LETTER_STATUSES.find((status) => status.value === value)?.label ?? value;
 }
 
-/**
- * Contextual edits offered on a selected passage in the editor. Rewrites are
- * refinements of a letter already paid for, so they do not cost a credit.
- */
 export const REWRITE_ACTIONS = [
   { value: "rewrite", label: "Rewrite" },
   { value: "shorten", label: "Shorten" },
@@ -87,10 +77,8 @@ export const CREDIT_REASONS = {
 
 export type CreditReason = (typeof CREDIT_REASONS)[keyof typeof CREDIT_REASONS];
 
-/** Every successful generation, including a regenerate, costs this much. */
 export const GENERATION_COST = 1;
 
-/** Skills and keywords are stored as one delimited string per column. */
 export const LIST_SEPARATOR = "|";
 
 export function packList(values: string[]): string {
@@ -108,7 +96,6 @@ export function unpackList(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-/** Wording for a match percentage; deliberately coarse rather than precise. */
 export function matchLabel(score: number): string {
   if (score >= 80) return "Strong match";
   if (score >= 60) return "Good match";

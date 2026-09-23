@@ -38,8 +38,6 @@ export default function PackageList({
       return;
     }
 
-    // Hand the browser to the gateway's hosted page. The app is not involved
-    // again until its callback is verified.
     window.location.href = response.redirectUrl as string;
   }
 

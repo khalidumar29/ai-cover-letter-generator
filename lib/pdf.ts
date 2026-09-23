@@ -1,15 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 
-/**
- * Renders a cover letter as a business-letter PDF.
- *
- * pdf-lib is used rather than a React renderer because the document is laid
- * out as flowing paragraphs on a page, not as a component tree, and its
- * standard fonts are built into the PDF spec — so there are no font files to
- * ship and nothing native to compile.
- */
-
-// US Letter, in points.
 const PAGE_WIDTH = 612;
 const PAGE_HEIGHT = 792;
 const MARGIN = 72;
@@ -61,7 +51,6 @@ export async function renderLetterPdf(letter: LetterDocument): Promise<Uint8Arra
     y -= size * 1.5;
   };
 
-  // Letterhead: the applicant's own details, then the date.
   drawLine(sanitize(letter.applicantName), heading, 16);
   drawLine(sanitize(letter.applicantEmail), body, BODY_SIZE, MUTED);
   y -= BODY_SIZE;
@@ -85,7 +74,6 @@ export async function renderLetterPdf(letter: LetterDocument): Promise<Uint8Arra
   return pdf.save();
 }
 
-/** Greedy line breaking against the font's real glyph widths. */
 function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const lines: string[] = [];
   let current = "";
@@ -97,7 +85,6 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
       continue;
     }
     if (current) lines.push(current);
-    // A single word wider than the column has to be split mid-word.
     current = font.widthOfTextAtSize(word, size) <= maxWidth ? word : breakWord(word, font, size, maxWidth, lines);
   }
 
@@ -124,11 +111,6 @@ function breakWord(
   return chunk;
 }
 
-/**
- * The standard fonts encode WinAnsi only, so anything outside it — an emoji,
- * a non-Latin script — would throw at draw time. Map the typography the model
- * actually emits and drop the rest.
- */
 function sanitize(value: string): string {
   return value
     .replace(/\r\n/g, "\n")
@@ -141,7 +123,6 @@ function sanitize(value: string): string {
     .replace(/[^\n\x20-\x7E\xA0-\xFF]/g, "");
 }
 
-/** Safe, readable filename for the Content-Disposition header. */
 export function letterFilename(jobTitle: string, company: string): string {
   const slug = `${company}-${jobTitle}`
     .toLowerCase()

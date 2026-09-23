@@ -6,11 +6,6 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { ToastProvider } from "@/app/shared/toast";
 import AppSidebar from "./app-sidebar";
 
-/**
- * Gate for every signed-in screen. The proxy already rejects requests without
- * a valid session cookie; this layer adds the checks that need the database —
- * the account still existing, and the email being confirmed.
- */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

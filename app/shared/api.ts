@@ -6,7 +6,6 @@ export type ApiFailure = {
 };
 export type ApiResult = ApiSuccess | ApiFailure;
 
-/** Posts JSON to an auth endpoint and normalises every failure mode. */
 export async function postJson(url: string, body: unknown): Promise<ApiResult> {
   try {
     const response = await fetch(url, {
@@ -24,7 +23,6 @@ export async function postJson(url: string, body: unknown): Promise<ApiResult> {
   }
 }
 
-/** First error message for a field, if the server returned one. */
 export function fieldError(
   result: ApiResult | null,
   field: string,

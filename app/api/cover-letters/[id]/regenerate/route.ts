@@ -6,10 +6,6 @@ import { prisma } from "@/lib/prisma";
 
 type Context = { params: Promise<{ id: string }> };
 
-/**
- * Rewrites a letter from the brief already stored on it. This is a fresh
- * generation, so it costs a credit like any other.
- */
 export async function POST(_request: Request, { params }: Context) {
   try {
     const guard = await requireApiUser();

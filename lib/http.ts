@@ -6,10 +6,6 @@ export function ok<T extends object>(data: T = {} as T, status = 200) {
   return NextResponse.json({ ok: true, ...data }, { status });
 }
 
-/**
- * Error envelope shared by every auth route so the client can render a single
- * banner message plus optional per-field messages.
- */
 export function fail(message: string, status = 400, fieldErrors?: FieldErrors) {
   return NextResponse.json(
     { ok: false, error: message, ...(fieldErrors ? { fieldErrors } : {}) },
@@ -17,7 +13,6 @@ export function fail(message: string, status = 400, fieldErrors?: FieldErrors) {
   );
 }
 
-/** Parses a JSON body, returning null instead of throwing on malformed input. */
 export async function readJson(request: Request): Promise<unknown | null> {
   try {
     return await request.json();
@@ -34,7 +29,6 @@ export function tooManyRequests(retryAfter: number) {
 }
 
 export function serverError(context: string, cause: unknown) {
-  // Details stay in the server log; the client gets a generic message.
   console.error(`[${context}]`, cause);
   return NextResponse.json(
     { ok: false, error: "Something went wrong. Please try again." },
@@ -42,7 +36,6 @@ export function serverError(context: string, cause: unknown) {
   );
 }
 
-/** Turns a failed auth guard into the response its status calls for. */
 export function guardFailure(status: 401 | 403) {
   return status === 401
     ? fail("Not authenticated.", 401)

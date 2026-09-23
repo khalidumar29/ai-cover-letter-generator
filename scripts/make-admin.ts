@@ -4,14 +4,6 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 import { PrismaClient } from "../lib/generated/prisma/client";
 
-/**
- * Promotes an existing account to administrator.
- *
- * There is deliberately no way to do this from the interface — the first admin
- * has to be made by someone with access to the server.
- *
- *   npm run make-admin -- someone@example.com
- */
 async function main() {
   const email = process.argv[2]?.trim().toLowerCase();
   if (!email) {

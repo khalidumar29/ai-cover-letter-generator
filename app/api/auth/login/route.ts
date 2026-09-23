@@ -18,8 +18,6 @@ export async function POST(request: Request) {
     }
     const { email, password } = parsed.data;
 
-    // A second bucket per account, so one address cannot be ground down from
-    // many IPs.
     const accountLimit = rateLimit(`login:email:${email}`, 10, 15 * 60 * 1000);
     if (!accountLimit.allowed) return tooManyRequests(accountLimit.retryAfter);
 
@@ -36,8 +34,6 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
-      // Spend comparable time so the response does not reveal that the address
-      // is unregistered.
       await burnTiming(password);
       return fail(GENERIC_FAILURE, 401);
     }
@@ -48,8 +44,6 @@ export async function POST(request: Request) {
 
     await startSession(user);
 
-    // Unverified accounts may sign in, but middleware keeps them on the
-    // verification notice until they confirm the address.
     return ok({ emailVerified: user.emailVerifiedAt !== null });
   } catch (cause) {
     return serverError("login", cause);

@@ -125,7 +125,6 @@ export default async function LettersPage({ searchParams }: { searchParams: Sear
                 {statusLabel(letter.status)}
               </Badge>
 
-              {/* Sits above the row-wide link overlay so the menu stays clickable. */}
               <div className="relative z-10">
                 <LetterActions
                   letterId={letter.id}

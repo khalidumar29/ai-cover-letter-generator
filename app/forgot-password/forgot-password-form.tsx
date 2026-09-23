@@ -26,8 +26,6 @@ export default function ForgotPasswordForm() {
     setPending(false);
   }
 
-  // The endpoint answers identically for known and unknown addresses, so the
-  // confirmation here must not claim the account exists.
   if (sentTo) {
     return (
       <div className="mt-8 space-y-4">

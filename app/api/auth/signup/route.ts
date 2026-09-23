@@ -20,8 +20,6 @@ export async function POST(request: Request) {
     }
     const { name, email, password } = parsed.data;
 
-    // Signup necessarily reveals whether an address is taken — the form cannot
-    // work otherwise. Login and password reset stay enumeration-safe instead.
     const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (existing) {
       return fail("An account with this email already exists.", 409, {
@@ -34,8 +32,6 @@ export async function POST(request: Request) {
       select: { id: true, name: true, email: true, role: true, credits: true },
     });
 
-    // The free credits come from a schema default, so record them in the
-    // ledger too — otherwise the balance would not reconcile against history.
     await prisma.creditTransaction.create({
       data: {
         userId: user.id,
@@ -46,8 +42,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // Sign in right away; verification is enforced separately by middleware, so
-    // the new user lands on a page that can resend the email.
     await startSession(user);
 
     let emailSent = true;
@@ -62,7 +56,6 @@ export async function POST(request: Request) {
         text: message.text,
       });
     } catch (cause) {
-      // The account exists and is usable; the user can trigger a resend.
       console.error("[signup] verification email failed", cause);
       emailSent = false;
     }

@@ -30,8 +30,6 @@ export default function VerifyEmailClient({
     { kind: "idle" | "sending" } | { kind: "done" | "error"; message: string }
   >({ kind: "idle" });
 
-  // React 18+ development mode mounts effects twice; the token is single-use,
-  // so guard against the second call consuming it.
   const submitted = useRef(false);
 
   useEffect(() => {
@@ -43,7 +41,6 @@ export default function VerifyEmailClient({
 
       if (response.ok) {
         setStatus({ kind: "verified" });
-        // Let the protected layout see the newly verified account.
         router.refresh();
       } else {
         setStatus({ kind: "failed", message: response.error });
@@ -113,8 +110,6 @@ export default function VerifyEmailClient({
       {resendState.kind === "done" && <Alert variant="success">{resendState.message}</Alert>}
       {resendState.kind === "error" && <Alert variant="error">{resendState.message}</Alert>}
 
-      {/* Resending needs a session or a known address; otherwise send them to
-          log in first, which re-establishes both. */}
       {email ? (
         <button
           type="button"

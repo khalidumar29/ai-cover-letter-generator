@@ -8,7 +8,6 @@ import { fieldError, postJson, type ApiResult } from "@/app/shared/api";
 import { useToast } from "@/app/shared/toast";
 import { Button, TextInput } from "@/app/shared/ui";
 
-/** Grants or removes credits for one account, always with a recorded reason. */
 export default function AdjustCredits({
   userId,
   userName,

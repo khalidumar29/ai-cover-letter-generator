@@ -12,8 +12,6 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
   const { token } = await searchParams;
   const user = await getCurrentUser();
 
-  // Nothing to do here once the address is confirmed, unless a link is being
-  // opened (which the client component reports on).
   if (!token && user?.emailVerifiedAt) redirect("/dashboard");
 
   return (

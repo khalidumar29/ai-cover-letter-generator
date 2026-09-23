@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 export type LedgerEntry = {
-  /** The account's balance after the entry was written. */
   balance: number;
   transactionId: string;
 };
@@ -16,13 +15,6 @@ export class InsufficientCreditsError extends Error {
   }
 }
 
-/**
- * Takes credits off an account and writes the matching ledger entry.
- *
- * The balance is decremented with a `gte` guard rather than being read and
- * then written, so two generations started at once cannot both pass the check
- * and push the account negative.
- */
 export async function spendCredits(options: {
   userId: string;
   amount: number;
@@ -69,7 +61,6 @@ export async function spendCredits(options: {
   return tx ? run(tx) : prisma.$transaction(run);
 }
 
-/** Adds credits and records why. Used by verified payments and by admins. */
 export async function addCredits(options: {
   userId: string;
   amount: number;
@@ -104,10 +95,6 @@ export async function addCredits(options: {
   return tx ? run(tx) : prisma.$transaction(run);
 }
 
-/**
- * Puts a spent credit back when a generation fails after the deduction — the
- * user should not pay for a letter they never received.
- */
 export async function refundCredits(options: {
   userId: string;
   amount: number;
@@ -122,7 +109,6 @@ export async function refundCredits(options: {
       description,
     });
   } catch (cause) {
-    // A failed refund must not mask the original error the caller is handling.
     console.error("[credits] refund failed", cause);
   }
 }

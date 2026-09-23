@@ -15,7 +15,6 @@ export default async function CreditsPage() {
     orderBy: [{ sortOrder: "asc" }, { priceCents: "asc" }],
   });
 
-  // The middle option by price, which is the one most people want.
   const recommendedSlug = packages[Math.floor(packages.length / 2)]?.slug;
 
   return (
@@ -54,9 +53,8 @@ export default async function CreditsPage() {
       )}
 
       <p className="mt-8 max-w-[70ch] text-[13px] leading-5 text-[#71717A]">
-        Payments run through a sandbox gateway, so no money moves and no card details are
-        collected. Credits are added only after the gateway&rsquo;s callback has been verified
-        on the server.
+        Payments are processed securely by Stripe &mdash; card details never touch this site.
+        Credits are added only after Stripe has confirmed the payment.
       </p>
     </>
   );

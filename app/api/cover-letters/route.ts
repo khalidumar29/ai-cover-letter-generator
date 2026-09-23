@@ -10,8 +10,6 @@ export async function POST(request: Request) {
     if (!guard.ok) return guardFailure(guard.status);
     const { user } = guard;
 
-    // Generation is the expensive call in the product. The credit balance is
-    // the real limit; this only stops one account from hammering the model.
     const limit = rateLimit(`generate:${user.id}`, 20, 60 * 60 * 1000);
     if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 

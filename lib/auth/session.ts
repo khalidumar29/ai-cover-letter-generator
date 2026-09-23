@@ -43,12 +43,6 @@ export async function endSession(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE);
 }
 
-/**
- * Resolves the signed-in user, or null. On top of verifying the JWT this
- * re-reads the user row, so a deleted account or a password change (which
- * bumps passwordChangedAt) invalidates sessions that are still cryptographically
- * valid.
- */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
@@ -73,8 +67,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!user) return null;
 
   if (user.passwordChangedAt) {
-    // JWT iat has second precision; floor the stored timestamp the same way so
-    // a token minted in the same second as the change is not falsely rejected.
     const changedAtSeconds = Math.floor(user.passwordChangedAt.getTime() / 1000);
     if (payload.iat < changedAtSeconds) return null;
   }

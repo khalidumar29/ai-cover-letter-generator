@@ -7,8 +7,6 @@ import { fail, ok, readJson, serverError, tooManyRequests } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { emailOnlySchema } from "@/lib/validation";
 
-// Deliberately identical whatever the outcome, so this endpoint cannot be used
-// to discover which addresses are registered or already verified.
 const GENERIC =
   "If that address needs confirming, a new link is on its way.";
 
@@ -17,8 +15,6 @@ export async function POST(request: Request) {
     const limit = rateLimit(`resend:${clientIp(request)}`, 5, 15 * 60 * 1000);
     if (!limit.allowed) return tooManyRequests(limit.retryAfter);
 
-    // Prefer the signed-in account; fall back to an emailed address for users
-    // who closed the tab before confirming.
     const currentUser = await getCurrentUser();
     let email = currentUser?.email ?? null;
 
