@@ -1,43 +1,48 @@
 import "server-only";
 
+import type Stripe from "stripe";
+
 import { addCredits } from "@/lib/credits";
 import { CREDIT_REASONS } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
-import { verifyCallback } from "@/lib/payments/gateway";
+import { stripe } from "@/lib/payments/stripe";
+
+export type SettlementOutcome = "success" | "failure" | "cancel" | "pending";
 
 export type SettlementResult =
-  | { ok: true; status: "PAID" | "FAILED" | "CANCELLED"; reference: string; alreadySettled: boolean }
-  | { ok: false; reason: "rejected" | "unknown" | "amount-mismatch" };
+  | {
+      ok: true;
+      status: "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+      reference: string;
+      alreadySettled: boolean;
+    }
+  | { ok: false; reason: "unknown" | "session-mismatch" | "amount-mismatch" };
 
-/**
- * The single place a gateway callback turns into credits.
- *
- * Three things have to hold before an account is credited: the payload's
- * signature verifies, the payment exists and is still pending, and the amount
- * reported matches the amount recorded when checkout started. The status
- * transition is guarded with `updateMany ... where status = PENDING`, so a
- * callback delivered twice — which real gateways do — credits exactly once.
- */
-export async function settlePayment(payload: unknown): Promise<SettlementResult> {
-  const verified = verifyCallback(payload);
-  if (!verified.ok) {
-    console.warn(`[payments] callback rejected: ${verified.reason}`);
-    return { ok: false, reason: "rejected" };
+function outcomeOf(session: Stripe.Checkout.Session, failed: boolean): SettlementOutcome {
+  if (failed) return "failure";
+  if (session.status === "expired") return "cancel";
+  if (
+    session.status === "complete" &&
+    (session.payment_status === "paid" || session.payment_status === "no_payment_required")
+  ) {
+    return "success";
   }
+  return "pending";
+}
 
-  const payment = await prisma.payment.findUnique({
-    where: { reference: verified.reference },
-  });
+export async function settleCheckoutSession(
+  session: Stripe.Checkout.Session,
+  options: { asyncPaymentFailed?: boolean } = {},
+): Promise<SettlementResult> {
+  const reference = session.client_reference_id ?? session.metadata?.reference;
+  if (!reference) return { ok: false, reason: "unknown" };
+
+  const payment = await prisma.payment.findUnique({ where: { reference } });
   if (!payment) return { ok: false, reason: "unknown" };
 
-  if (payment.amountCents !== verified.amountCents || payment.currency !== verified.currency) {
-    // The amount was altered between checkout and callback. Never credit this.
-    console.warn(`[payments] amount mismatch on ${payment.reference}`);
-    await prisma.payment.updateMany({
-      where: { id: payment.id, status: "PENDING" },
-      data: { status: "FAILED", failureCode: "amount_mismatch", completedAt: new Date() },
-    });
-    return { ok: false, reason: "amount-mismatch" };
+  if (payment.gatewaySessionId && payment.gatewaySessionId !== session.id) {
+    console.warn(`[payments] session mismatch on ${payment.reference}`);
+    return { ok: false, reason: "session-mismatch" };
   }
 
   if (payment.status !== "PENDING") {
@@ -49,17 +54,35 @@ export async function settlePayment(payload: unknown): Promise<SettlementResult>
     };
   }
 
-  if (verified.outcome !== "success") {
-    const status = verified.outcome === "cancel" ? "CANCELLED" : "FAILED";
+  const outcome = outcomeOf(session, options.asyncPaymentFailed ?? false);
+
+  if (outcome === "pending") {
+    return { ok: true, status: "PENDING", reference: payment.reference, alreadySettled: false };
+  }
+
+  if (outcome !== "success") {
+    const status = outcome === "cancel" ? "CANCELLED" : "FAILED";
     await prisma.payment.updateMany({
       where: { id: payment.id, status: "PENDING" },
       data: {
         status,
-        failureCode: verified.outcome === "cancel" ? "cancelled_by_user" : "declined",
+        failureCode: outcome === "cancel" ? "cancelled_or_expired" : "declined",
         completedAt: new Date(),
       },
     });
     return { ok: true, status, reference: payment.reference, alreadySettled: false };
+  }
+
+  if (
+    session.amount_total !== payment.amountCents ||
+    session.currency?.toUpperCase() !== payment.currency.toUpperCase()
+  ) {
+    console.warn(`[payments] amount mismatch on ${payment.reference}`);
+    await prisma.payment.updateMany({
+      where: { id: payment.id, status: "PENDING" },
+      data: { status: "FAILED", failureCode: "amount_mismatch", completedAt: new Date() },
+    });
+    return { ok: false, reason: "amount-mismatch" };
   }
 
   const credited = await prisma.$transaction(async (tx) => {
@@ -67,7 +90,6 @@ export async function settlePayment(payload: unknown): Promise<SettlementResult>
       where: { id: payment.id, status: "PENDING" },
       data: { status: "PAID", completedAt: new Date() },
     });
-    // Another delivery of the same callback won the race; it did the crediting.
     if (claimed.count === 0) return false;
 
     await addCredits({
@@ -88,4 +110,18 @@ export async function settlePayment(payload: unknown): Promise<SettlementResult>
     reference: payment.reference,
     alreadySettled: !credited,
   };
+}
+
+export async function syncPendingPayment(payment: {
+  status: string;
+  gatewaySessionId: string | null;
+}): Promise<void> {
+  if (payment.status !== "PENDING" || !payment.gatewaySessionId) return;
+
+  try {
+    const session = await stripe().checkout.sessions.retrieve(payment.gatewaySessionId);
+    await settleCheckoutSession(session);
+  } catch (cause) {
+    console.error("[payments] could not sync session", cause);
+  }
 }

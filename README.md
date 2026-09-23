@@ -49,7 +49,7 @@ This project is being developed for the **Information System Design & Software E
 - Receive a limited number of free credits after registration.
 - View the current credit balance.
 - Select and purchase a credit package.
-- Pay through a sandbox payment gateway.
+- Pay through Stripe Checkout.
 - Handle successful, failed, and cancelled payments.
 - Add credits only after the payment is verified.
 - View payment and credit transaction history.
@@ -108,7 +108,7 @@ The plan above left several choices open. What the build settled on, and why:
 | Auth | Custom JWT in an httpOnly cookie | The verification and reset flows need their own single-use token handling either way, so Auth.js would have added a dependency without removing work. |
 | AI | DeepSeek (`deepseek-chat`) | OpenAI-compatible, so the client is one `fetch` in `lib/ai/deepseek.ts` and swapping providers is a change to that one file. |
 | Email | Brevo | One REST call, no SDK. |
-| Payments | Built-in sandbox gateway | Demonstrates the full hosted-redirect and verified-callback protocol without a merchant account. See [Payments](#payments). |
+| Payments | Stripe Checkout | Hosted payment page, so card details never touch the application; confirmed by a signature-verified webhook. See [Payments](#payments). |
 | PDF | `pdf-lib` | Its standard fonts are built into the PDF spec, so there are no font files to ship and nothing native to compile. |
 
 ## Getting Started
@@ -140,7 +140,8 @@ There is deliberately no way to do this from the interface.
 | `BREVO_SENDER_NAME` | Display name on outgoing email. |
 | `APP_URL` | Base URL used to build links inside emails and checkout redirects. |
 | `DEEPSEEK_API_KEY` | DeepSeek API key. Required for generation and rewrites. |
-| `PAYMENT_GATEWAY_SECRET` | Optional. Signing key for the sandbox gateway; falls back to `AUTH_SECRET`. |
+| `STRIPE_SECRET_KEY` | Stripe API key. A restricted key (`rk_…`) with write access to Checkout Sessions is preferred. Use a test-mode or sandbox key in development. |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret (`whsec_…`) of the webhook endpoint for `/api/payments/webhook`. |
 
 `.env` is gitignored and must never be committed.
 
@@ -248,36 +249,48 @@ Two properties matter and are covered by the implementation:
 
 ## Payments
 
-The project needs to demonstrate a gateway integration without a live merchant
-account, so the gateway is simulated — but the protocol is the real one:
+Payments go through [Stripe Checkout](https://docs.stripe.com/payments/checkout):
 
 1. `POST /api/checkout` records a `PENDING` payment, copying the package's
    price, credits and name onto it so a later edit to the package cannot change
-   what the purchase was for. It returns a signed hosted-checkout URL.
-2. The browser leaves the application for `/checkout/sandbox`, which is styled
-   as a third-party page because on a real gateway it would be one. The payer
-   chooses success, decline or cancel.
-3. The gateway endpoint verifies the checkout session it issued, signs the
-   outcome, and submits it through `settlePayment`.
-4. `settlePayment` is the only place credits are added, and it requires all
-   three of: a verifying signature, a payment still in `PENDING`, and a reported
-   amount matching the recorded one.
+   what the purchase was for. It then creates a Checkout Session and returns
+   its URL.
+2. The browser leaves the application for Stripe's hosted page. Card details
+   never reach this server.
+3. Stripe confirms the outcome through `POST /api/payments/webhook`, which
+   verifies the `Stripe-Signature` header against the raw body before doing
+   anything else. The result page (`/credits/result`) also retrieves the
+   session from Stripe directly, so a buyer who lands there before the webhook
+   still sees their credits.
+4. `settleCheckoutSession` in `lib/payments/settle.ts` is the only place credits
+   are added, and it requires all three of: a session that came from Stripe, a
+   payment still in `PENDING`, and a charged amount matching the recorded one.
+   The status transition is guarded with `updateMany ... where status =
+   'PENDING'`, so a webhook delivered twice, or racing the result page, credits
+   exactly once.
 
-`POST /api/payments/callback` is the public IPN endpoint a real gateway would
-post to. It is unauthenticated by necessity, so the signature check is the only
-thing that makes it trustworthy.
+Cancelling on the Stripe page goes to `/api/checkout/cancel`, which expires the
+session so it can no longer be paid. Abandoned sessions expire after an hour and
+are marked cancelled by the `checkout.session.expired` webhook.
 
-Verified behaviour:
+### Webhook setup
 
-- A callback with a forged signature is rejected and credits nothing.
-- A hosted-checkout link edited to a lower amount is rejected.
-- The same callback delivered twice credits exactly once, because the status
-  transition is guarded with `updateMany ... where status = 'PENDING'`. Real
-  gateways retry, so this is not hypothetical.
+Subscribe the endpoint to `checkout.session.completed`,
+`checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed` and `checkout.session.expired`.
 
-Swapping in SSLCommerz or Stripe means replacing `createSession` and
-`verifyCallback` in `lib/payments/gateway.ts`. The payment rows, the credit
-ledger and the result pages stay as they are.
+Locally, forward events with the Stripe CLI and copy the `whsec_…` secret it
+prints into `STRIPE_WEBHOOK_SECRET`:
+
+```bash
+npm run stripe:listen   # stripe listen --forward-to localhost:3000/api/payments/webhook
+```
+
+`STRIPE_SECRET_KEY` and the CLI must point at the same Stripe account, or the
+forwarded events will not match the sessions the app created.
+
+In test mode, pay with card `4242 4242 4242 4242`, any future expiry and any
+CVC. `4000 0000 0000 0002` is declined.
 
 ## Administration
 
@@ -302,7 +315,7 @@ history keeps pointing at something real.
 | User | Stores account details, role, and credit balance |
 | CoverLetter | Stores input information and generated cover letters |
 | CreditPackage | Stores purchasable credit packages and prices |
-| Payment | Stores payment amount, gateway reference, and status |
+| Payment | Stores payment amount, reference, Stripe session id, and status |
 | CreditTransaction | Records every credit addition and deduction |
 
 ## Non-Functional Requirements
@@ -311,7 +324,7 @@ history keeps pointing at something real.
 - Private routes must require authentication.
 - User and administrator permissions must be separated.
 - Form input must be validated on both client and server.
-- Payment callbacks must be verified before credits are added.
+- Payment webhooks must be verified before credits are added.
 - AI and payment API keys must be stored in environment variables.
 - The interface must be responsive on desktop and mobile devices.
 - Errors must be handled without exposing sensitive information.
@@ -327,7 +340,6 @@ history keeps pointing at something real.
 | `/letters/new` | Generate a cover letter |
 | `/letters/[id]` | Document editor with contextual AI actions |
 | `/credits` | Credit packages |
-| `/checkout/sandbox` | Hosted gateway page |
 | `/credits/result` | Payment outcome |
 | `/credits/history` | Payments and the credit ledger |
 | `/account/password` | Change password |
@@ -347,7 +359,6 @@ Known limits, all of them deliberate for a single-server academic build:
 
 - The rate limiter lives in process memory. A multi-instance deployment needs a
   shared store.
-- The payment gateway is the built-in sandbox. No money moves.
 - SQLite is a single file, so writes serialise. Fine for a demo, not for load.
 
 ## License

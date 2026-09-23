@@ -1,15 +1,17 @@
+import Stripe from "stripe";
+
 import { requireApiUser } from "@/lib/auth/guard";
 import { rateLimit } from "@/lib/auth/rate-limit";
 import { fail, guardFailure, ok, readJson, serverError, tooManyRequests } from "@/lib/http";
-import { createSession, GATEWAY_NAME, newReference } from "@/lib/payments/gateway";
+import {
+  createCheckoutSession,
+  GATEWAY_NAME,
+  isStripeConfigured,
+  newReference,
+} from "@/lib/payments/stripe";
 import { prisma } from "@/lib/prisma";
 import { checkoutSchema, toFieldErrors } from "@/lib/validation";
 
-/**
- * Starts a purchase: records a pending payment, then hands back the gateway's
- * hosted-checkout URL for the browser to follow. Credits are not touched here
- * — only a verified callback can add them.
- */
 export async function POST(request: Request) {
   try {
     const guard = await requireApiUser();
@@ -29,11 +31,14 @@ export async function POST(request: Request) {
     });
     if (!creditPackage) return fail("That credit package is not available.", 404);
 
+    if (!isStripeConfigured()) {
+      console.error("[checkout] STRIPE_SECRET_KEY is not set; see .env.example");
+      return fail("Payments are not set up yet. Please try again later.", 503);
+    }
+
     const reference = newReference();
 
-    // Price, credits and name are copied onto the payment so a later edit to
-    // the package cannot change what this purchase was for.
-    await prisma.payment.create({
+    const payment = await prisma.payment.create({
       data: {
         userId: user.id,
         packageId: creditPackage.id,
@@ -46,14 +51,35 @@ export async function POST(request: Request) {
       },
     });
 
-    const session = createSession({
-      reference,
-      amountCents: creditPackage.priceCents,
-      currency: creditPackage.currency,
-      packageName: creditPackage.name,
+    let session;
+    try {
+      session = await createCheckoutSession({
+        reference,
+        amountCents: creditPackage.priceCents,
+        currency: creditPackage.currency,
+        packageName: creditPackage.name,
+        credits: creditPackage.credits,
+        customerEmail: user.email,
+      });
+    } catch (cause) {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: "FAILED", failureCode: "gateway_error", completedAt: new Date() },
+      });
+      if (!(cause instanceof Stripe.errors.StripeError)) throw cause;
+
+      console.error(`[checkout] Stripe rejected the session: ${cause.type} ${cause.message}`);
+      return fail("We couldn't start the checkout. Please try again in a moment.", 502);
+    }
+
+    if (!session.url) throw new Error(`Checkout session ${session.id} has no URL`);
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { gatewaySessionId: session.id },
     });
 
-    return ok({ redirectUrl: session.redirectUrl, reference }, 201);
+    return ok({ redirectUrl: session.url, reference }, 201);
   } catch (cause) {
     return serverError("checkout", cause);
   }

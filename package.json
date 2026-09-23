@@ -12,7 +12,8 @@
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx prisma/seed.ts",
-    "make-admin": "npx tsx scripts/make-admin.ts"
+    "make-admin": "npx tsx scripts/make-admin.ts",
+    "stripe:listen": "stripe -p ai-cover-letter listen --forward-to localhost:3000/api/payments/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
@@ -26,6 +27,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "server-only": "^0.0.1",
+    "stripe": "^22.6.2",
     "zod": "^4.6.1"
   },
   "devDependencies": {

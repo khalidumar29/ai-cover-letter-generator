@@ -181,7 +181,7 @@ const faqs = [
   {
     question: "How do I get more credits?",
     answer:
-      "You can purchase credit packages once you run out. Payments go through a sandbox payment gateway and credits are added only after the payment is verified.",
+      "You can purchase credit packages once you run out. Payments are processed securely by Stripe and credits are added only after the payment is verified.",
   },
   {
     question: "What happens to my saved letters?",
@@ -465,7 +465,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Product showcase / AI actions */}
+      {/* Showcase */}
       <section className="mx-auto max-w-[1280px] px-4 py-16 sm:px-6 lg:px-10 lg:py-20">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>

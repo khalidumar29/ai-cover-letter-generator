@@ -3,6 +3,7 @@ import { Ban, CheckCircle2, Sparkles, XCircle } from "lucide-react";
 
 import { requirePageUser } from "@/lib/auth/guard";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { syncPendingPayment } from "@/lib/payments/settle";
 import { prisma } from "@/lib/prisma";
 import { ButtonLink, Card } from "@/app/shared/ui";
 
@@ -31,7 +32,7 @@ const OUTCOMES = {
     icon: Sparkles,
     className: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
     title: "Payment still processing",
-    body: "The gateway has not confirmed this payment yet. Refresh in a moment.",
+    body: "Stripe has not confirmed this payment yet. Refresh in a moment.",
   },
 } as const;
 
@@ -42,10 +43,17 @@ export default async function PaymentResultPage({ searchParams }: { searchParams
   const { ref } = await searchParams;
   if (!ref) notFound();
 
-  const payment = await prisma.payment.findFirst({
+  const found = await prisma.payment.findFirst({
     where: { reference: ref, userId: user.id },
   });
-  if (!payment) notFound();
+  if (!found) notFound();
+
+  await syncPendingPayment(found);
+
+  const [payment, balance] = await Promise.all([
+    prisma.payment.findUniqueOrThrow({ where: { id: found.id } }),
+    prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { credits: true } }),
+  ]);
 
   const outcome = OUTCOMES[payment.status as keyof typeof OUTCOMES] ?? OUTCOMES.PENDING;
   const Icon = outcome.icon;
@@ -75,7 +83,7 @@ export default async function PaymentResultPage({ searchParams }: { searchParams
 
         {payment.status === "PAID" && (
           <p className="mt-5 rounded-lg border border-[#DDD8FF] bg-[#F1EFFE] px-3.5 py-3 text-[13px] leading-5 text-[#5D4EEA]">
-            Your balance is now {user.credits} {user.credits === 1 ? "credit" : "credits"}.
+            Your balance is now {balance.credits} {balance.credits === 1 ? "credit" : "credits"}.
           </p>
         )}
 
