@@ -32,7 +32,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tokens AuthToken[]
+  tokens       AuthToken[]
+  coverLetters CoverLetter[]
+  payments     Payment[]
+  transactions CreditTransaction[]
 }
 
 model AuthToken {
@@ -52,4 +55,115 @@ model AuthToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, type])
+}
+
+model CoverLetter {
+  id     String @id @default(cuid())
+  userId String
+
+  // Inputs kept alongside the result so a letter can be regenerated or
+  // reopened for editing without retyping the brief.
+  jobTitle       String
+  company        String
+  jobDescription String
+  tone           String
+  skills         String
+  experience     String
+
+  content String
+
+  // "DRAFT" | "READY" | "SUBMITTED" | "ARCHIVED"
+  status String @default("DRAFT")
+
+  // Rough resume/job overlap shown in the UI. Null for letters generated
+  // before the model returned one.
+  matchScore    Int?
+  matchedSkills String?
+  missingSkills String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions CreditTransaction[]
+
+  @@index([userId, updatedAt])
+}
+
+model CreditPackage {
+  id      String @id @default(cuid())
+  slug    String @unique
+  name    String
+  credits Int
+
+  // Integer minor units, so prices never go through binary floating point.
+  priceCents Int
+  currency   String @default("USD")
+
+  description String
+  active      Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[]
+}
+
+model Payment {
+  id        String  @id @default(cuid())
+  userId    String
+  packageId String?
+
+  // Copied from the package at purchase time: editing or removing a package
+  // later must not rewrite what someone already paid.
+  packageName String
+  credits     Int
+  amountCents Int
+  currency    String
+
+  // "PENDING" | "PAID" | "FAILED" | "CANCELLED"
+  status String @default("PENDING")
+
+  /// Identifier the gateway echoes back on its callback.
+  reference   String    @unique
+  gateway     String    @default("sandbox")
+  failureCode String?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package      CreditPackage?      @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  transactions CreditTransaction[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model CreditTransaction {
+  id     String @id @default(cuid())
+  userId String
+
+  /// Positive for a top-up, negative for a spend.
+  delta Int
+
+  // "SIGNUP_BONUS" | "PURCHASE" | "GENERATION" | "REFUND" | "ADMIN_ADJUSTMENT"
+  reason      String
+  description String
+
+  /// Balance after this entry, so history reads correctly without replaying.
+  balanceAfter Int
+
+  paymentId     String?
+  coverLetterId String?
+
+  createdAt DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payment     Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  coverLetter CoverLetter? @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }
