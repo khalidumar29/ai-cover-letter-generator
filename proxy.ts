@@ -8,7 +8,14 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth/jwt";
  * Whether the email is verified is enforced in the protected layout, which
  * can read the user row.
  */
-const PROTECTED_PREFIXES = ["/dashboard", "/account"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/account",
+  "/letters",
+  "/credits",
+  "/checkout",
+  "/admin",
+];
 const GUEST_ONLY = ["/login", "/signup", "/forgot-password"];
 
 export async function proxy(request: NextRequest) {

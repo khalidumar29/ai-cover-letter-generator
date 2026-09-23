@@ -4,6 +4,7 @@ import { startSession } from "@/lib/auth/session";
 import { EMAIL_VERIFICATION, issueToken } from "@/lib/auth/tokens";
 import { sendEmail } from "@/lib/email/brevo";
 import { verificationEmail } from "@/lib/email/templates";
+import { CREDIT_REASONS } from "@/lib/domain";
 import { fail, ok, readJson, serverError, tooManyRequests } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { signupSchema, toFieldErrors } from "@/lib/validation";
@@ -30,7 +31,19 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.create({
       data: { name, email, passwordHash: await hashPassword(password) },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, credits: true },
+    });
+
+    // The free credits come from a schema default, so record them in the
+    // ledger too — otherwise the balance would not reconcile against history.
+    await prisma.creditTransaction.create({
+      data: {
+        userId: user.id,
+        delta: user.credits,
+        reason: CREDIT_REASONS.SIGNUP_BONUS,
+        description: "Free credits for creating an account",
+        balanceAfter: user.credits,
+      },
     });
 
     // Sign in right away; verification is enforced separately by middleware, so
