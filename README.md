@@ -63,13 +63,16 @@ This project is being developed for the **Information System Design & Software E
 - View purchased and used credits.
 - Manage available credit packages.
 
-## Proposed Credit Packages
+## Credit Packages
 
-| Package | Credits | Purpose |
-| --- | ---: | --- |
-| Free | 2 | Included after registration |
-| Basic | 10 | Suitable for occasional use |
-| Standard | 25 | Suitable for active job seekers |
+Seeded by `npm run db:seed`, and editable afterwards from the admin dashboard.
+
+| Package | Credits | Price | Purpose |
+| --- | ---: | ---: | --- |
+| Free | 2 | — | Included after registration |
+| Basic | 10 | $5 | Occasional use |
+| Standard | 25 | $10 | An active job search |
+| Pro | 60 | $20 | Applying at volume |
 
 ## Main Workflow
 
@@ -95,16 +98,18 @@ This project is being developed for the **Information System Design & Software E
 
 The final stack may be adjusted according to course requirements.
 
-### Implemented so far
+### Stack decisions
 
-Authentication is built and working. It uses SQLite through Prisma rather than
-PostgreSQL, so the project runs with no database server to install — moving to
-PostgreSQL later means changing the `provider` in `prisma/schema.prisma` and
-pointing `DATABASE_URL` at the new server. Sessions are custom JWTs in an
-httpOnly cookie instead of Auth.js, because the verification and reset flows
-need their own single-use token handling either way.
+The plan above left several choices open. What the build settled on, and why:
 
-Transactional email is sent through **Brevo**.
+| Area | Choice | Reason |
+| --- | --- | --- |
+| Database | SQLite via Prisma | Runs with no database server to install. Moving to PostgreSQL means changing `provider` in `prisma/schema.prisma` and pointing `DATABASE_URL` at the new server. |
+| Auth | Custom JWT in an httpOnly cookie | The verification and reset flows need their own single-use token handling either way, so Auth.js would have added a dependency without removing work. |
+| AI | DeepSeek (`deepseek-chat`) | OpenAI-compatible, so the client is one `fetch` in `lib/ai/deepseek.ts` and swapping providers is a change to that one file. |
+| Email | Brevo | One REST call, no SDK. |
+| Payments | Built-in sandbox gateway | Demonstrates the full hosted-redirect and verified-callback protocol without a merchant account. See [Payments](#payments). |
+| PDF | `pdf-lib` | Its standard fonts are built into the PDF spec, so there are no font files to ship and nothing native to compile. |
 
 ## Getting Started
 
@@ -112,8 +117,17 @@ Transactional email is sent through **Brevo**.
 npm install            # also runs `prisma generate`
 cp .env.example .env   # then fill in the values below
 npm run db:migrate     # creates dev.db and applies migrations
+npm run db:seed        # adds the starter credit packages
 npm run dev
 ```
+
+To reach the admin dashboard, sign up as normal and then promote that account:
+
+```bash
+npm run make-admin -- you@example.com
+```
+
+There is deliberately no way to do this from the interface.
 
 ### Environment variables
 
@@ -124,7 +138,9 @@ npm run dev
 | `BREVO_API_KEY` | Brevo API key. Leave it unset in development to print emails to the server console instead of sending them. |
 | `BREVO_SENDER_EMAIL` | Sender address. Must be a verified sender or an authenticated domain in Brevo. |
 | `BREVO_SENDER_NAME` | Display name on outgoing email. |
-| `APP_URL` | Base URL used to build links inside emails. |
+| `APP_URL` | Base URL used to build links inside emails and checkout redirects. |
+| `DEEPSEEK_API_KEY` | DeepSeek API key. Required for generation and rewrites. |
+| `PAYMENT_GATEWAY_SECRET` | Optional. Signing key for the sandbox gateway; falls back to `AUTH_SECRET`. |
 
 `.env` is gitignored and must never be committed.
 
@@ -178,6 +194,107 @@ runtime and checks only the session signature, since it has no database access.
 The database-backed checks — the account still existing, and the email being
 confirmed — happen in `app/(app)/layout.tsx`.
 
+## Cover letters
+
+| Action | Page | Endpoint |
+| --- | --- | --- |
+| Generate | `/letters/new` | `POST /api/cover-letters` |
+| List and filter | `/letters` | — |
+| Read and edit | `/letters/[id]` | `PATCH /api/cover-letters/[id]` |
+| Rewrite a passage | editor selection | `POST /api/ai/rewrite` |
+| Regenerate | editor | `POST /api/cover-letters/[id]/regenerate` |
+| Download PDF | editor / row menu | `GET /api/cover-letters/[id]/pdf` |
+| Delete | row menu | `DELETE /api/cover-letters/[id]` |
+
+Generation is a single DeepSeek call that returns the letter *and* the job-match
+summary as one JSON object, so a letter costs one credit and one round trip
+rather than two of each. The prompt forbids inventing an employer, metric or
+date that the user did not supply, and the result is stripped of markdown before
+it is stored.
+
+The brief is saved alongside the letter, which is what makes regeneration
+possible without retyping it.
+
+### Editing
+
+The editor is a `contentEditable` document rather than a chat transcript.
+Selecting any passage raises a contextual toolbar — rewrite, shorten, expand,
+more professional, more confident, more natural, more specific, or a free-text
+instruction. Rewrites replace the selection in place.
+
+Rewrites are free. They refine a letter the user has already paid to generate,
+so charging again would mean paying twice for one letter; the endpoint is rate
+limited instead.
+
+## Credits
+
+One credit per generation or regeneration. Editing, rewriting, copying and
+exporting are all free. New accounts get two credits.
+
+Every movement is written to `CreditTransaction` with the balance it produced,
+so `/credits/history` reconciles against the account balance without replaying
+the ledger.
+
+Two properties matter and are covered by the implementation:
+
+- **A generation cannot overdraw an account.** The balance is decremented with a
+  `where credits >= cost` guard rather than being read and then written, so
+  concurrent requests cannot both pass the check. Firing three generations at a
+  one-credit account yields one success and two `402`s.
+- **A failed generation is not charged.** The credit is taken before the model
+  call, because the alternative allows unlimited free generations under
+  concurrency. If the call then fails, the credit is refunded and both entries
+  appear in the ledger.
+
+## Payments
+
+The project needs to demonstrate a gateway integration without a live merchant
+account, so the gateway is simulated — but the protocol is the real one:
+
+1. `POST /api/checkout` records a `PENDING` payment, copying the package's
+   price, credits and name onto it so a later edit to the package cannot change
+   what the purchase was for. It returns a signed hosted-checkout URL.
+2. The browser leaves the application for `/checkout/sandbox`, which is styled
+   as a third-party page because on a real gateway it would be one. The payer
+   chooses success, decline or cancel.
+3. The gateway endpoint verifies the checkout session it issued, signs the
+   outcome, and submits it through `settlePayment`.
+4. `settlePayment` is the only place credits are added, and it requires all
+   three of: a verifying signature, a payment still in `PENDING`, and a reported
+   amount matching the recorded one.
+
+`POST /api/payments/callback` is the public IPN endpoint a real gateway would
+post to. It is unauthenticated by necessity, so the signature check is the only
+thing that makes it trustworthy.
+
+Verified behaviour:
+
+- A callback with a forged signature is rejected and credits nothing.
+- A hosted-checkout link edited to a lower amount is rejected.
+- The same callback delivered twice credits exactly once, because the status
+  transition is guarded with `updateMany ... where status = 'PENDING'`. Real
+  gateways retry, so this is not hypothetical.
+
+Swapping in SSLCommerz or Stripe means replacing `createSession` and
+`verifyCallback` in `lib/payments/gateway.ts`. The payment rows, the credit
+ledger and the result pages stay as they are.
+
+## Administration
+
+`/admin`, gated in the route group's layout so a new page added there is
+protected by default. Non-admins are redirected rather than shown a 403, so the
+area is not discoverable by probing.
+
+| Screen | Purpose |
+| --- | --- |
+| Overview | Accounts, letters generated, revenue, credits sold and used |
+| Users | Every account, with a credit adjustment that records a reason |
+| Payments | Every checkout attempt, filterable by status |
+| Packages | Create, edit, hide and remove credit packages |
+
+Deleting a package that has already been bought retires it instead, so payment
+history keeps pointing at something real.
+
 ## Main Database Entities
 
 | Entity | Purpose |
@@ -199,20 +316,22 @@ confirmed — happen in `app/(app)/layout.tsx`.
 - The interface must be responsive on desktop and mobile devices.
 - Errors must be handled without exposing sensitive information.
 
-## Suggested Pages
+## Pages
 
-- Home page
-- Register page
-- Login page
-- Forgot password page
-- User dashboard
-- Generate cover letter page
-- Saved cover letters page
-- Cover letter details and editor page
-- Credit packages and checkout page
-- Payment status page
-- Payment history page
-- Admin dashboard
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing page |
+| `/signup`, `/login`, `/forgot-password`, `/reset-password`, `/verify-email` | Authentication |
+| `/dashboard` | Balance, activity and recent letters |
+| `/letters` | All cover letters, filterable by status |
+| `/letters/new` | Generate a cover letter |
+| `/letters/[id]` | Document editor with contextual AI actions |
+| `/credits` | Credit packages |
+| `/checkout/sandbox` | Hosted gateway page |
+| `/credits/result` | Payment outcome |
+| `/credits/history` | Payments and the credit ledger |
+| `/account/password` | Change password |
+| `/admin`, `/admin/users`, `/admin/payments`, `/admin/packages` | Administration |
 
 ## Project Scope
 
@@ -220,8 +339,16 @@ The project focuses only on generating and managing cover letters. Résumé buil
 
 ## Project Status
 
-Authentication is implemented and tested end to end. Cover letter generation,
-credits and payments are still to be built.
+All planned features are implemented: authentication, AI cover letter
+generation and editing, cover letter management with PDF export, credits, the
+payment flow, and the administrator dashboard.
+
+Known limits, all of them deliberate for a single-server academic build:
+
+- The rate limiter lives in process memory. A multi-instance deployment needs a
+  shared store.
+- The payment gateway is the built-in sandbox. No money moves.
+- SQLite is a single file, so writes serialise. Fine for a demo, not for load.
 
 ## License
 
